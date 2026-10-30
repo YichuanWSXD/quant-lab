@@ -1,0 +1,27 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Test / tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+
+# Data: downloaded by scripts, never committed
+data/
+*.parquet
+*.csv
+*.h5
+*.feather
+
+# Local env / secrets
+.env
+.env.*
