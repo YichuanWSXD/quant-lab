@@ -68,7 +68,8 @@ Design complete; the engine is under active development and no component is usab
 | Milestone | What | Status |
 |---|---|---|
 | **P1** | Event-driven backtest engine (this repository) | design ✅ / code ⬜ |
-| **P2** | L2 order book reconstruction + replay (Binance / OKX depth diff) — separate repository | ⬜ |
+| **P4** | Execution algorithm research — market / limit / VWAP / participation — on top of the P1 engine (this repository) | ⬜ |
+| **P2** | L2 order book reconstruction + replay (Binance / OKX depth diff) — separate repository, together with P3 and P5 | ⬜ |
 | **P5** | Low-latency components in C++ (ring buffer, matching hot path) — with P2 | ⬜ |
 
 P1 uses **equities** on purpose: suspensions, adjustment factors and market hours force the correctness checks that matter. P2 uses **crypto** because free full-depth, 24/7 data is what makes microstructure work possible.
