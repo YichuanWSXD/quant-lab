@@ -1,7 +1,7 @@
 [project]
 name = "quant-lab"
 version = "0.1.0"
-description = "Add your description here"
+description = "Event-driven backtesting, L2 order book reconstruction, and execution research, built from scratch."
 readme = "README.md"
 authors = [
     { name = "Yichuan", email = "wsxdwang@gmail.com" }
@@ -13,6 +13,7 @@ dependencies = [
     "pyarrow>=26.0.0",
     "pytest>=9.2.0",
     "ruff>=0.17.3",
+    "yfinance>=1.7.0",
 ]
 
 [project.scripts]
