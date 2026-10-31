@@ -1,28 +1,49 @@
 # quant-lab
 
-Trading-system components built from scratch — an event-driven backtest engine, an L2 order book reconstruction, and execution/low-latency pieces.
-
-The goal is not another `signal.shift(1) * returns` notebook. It is the parts a quant developer actually gets asked about in an interview: **how does an order become a fill, what did you assume about slippage, and how do you know there is no look-ahead bias.**
-
-> **Status: early.** Design is done (see below); the engine implementation starts in November 2026. Nothing here is a working backtester yet.
+An event-driven backtesting engine and market-data toolkit in which **every assumption is explicit, testable, and printed in the output**.
 
 ---
 
-## Why this repo exists
+## What it is
 
-Vectorised backtests are three lines long and cannot answer basic questions:
+Most backtests are a dataframe and a shift. `quant-lab` replaces that with an event loop: data arrives one bar at a time, a strategy sees only what had been published at that timestamp, and every order the engine accepts produces a fill with a recorded price, quantity, slippage and fee.
 
-- At what price did the order actually fill — close, next open, or the bar's high/low?
-- What happened when the bar had no volume, or the stock was suspended?
-- Where does the fill price come from, and who applies fees and slippage?
+What a run produces:
 
-This repo builds the slow, explicit version of that loop, so those questions have answers.
+- **A fill for every order** — price, size, costs — not a return series with costs subtracted afterwards.
+- **Point-in-time data access.** A strategy cannot read a bar that had not been published yet.
+- **A per-run report.** Equity curve, drawdown, turnover, hit rate, per-trade and per-symbol attribution.
+- **A reproducible run.** Data snapshot + config hash + seed reproduce the same numbers, on any machine.
 
-## P1 · Event-driven backtest engine
+## Why it exists
+
+The four decisions that most often turn a good-looking backtest into a losing strategy are made *implicitly* by convenient tooling:
+
+| Hidden assumption | What it actually does |
+|---|---|
+| Fill at the close | A same-bar signal filled at that close is look-ahead, not alpha |
+| Every order fills completely | Illiquid names behave like index futures |
+| Costs as one flat bps number | A strategy that only survives at zero cost looks profitable |
+| One price series, adjusted | Splits and dividends silently rewrite the past |
+
+Production strategies die on these, not on the signal. So the design rule here is the opposite of convenience:
+
+> **Nothing is implicit.** Fill price, fill quantity, the slippage model, the fee schedule and data timing are configuration, and the report states which values produced each number.
+
+That is the whole reason to build this instead of adopting an existing framework: not features, but **auditability**.
+
+## What you can do with it
+
+- **Stress a signal before funding it.** Run the same strategy at 0 / 5 / 10 / 20 bps of slippage and see where the edge dies.
+- **Compare execution algorithms.** Market, limit, VWAP, participation — on the same signal, same data, same cost model.
+- **Reproduce someone else's result.** The assumptions that produced a number are in the config, so a published Sharpe can be re-run instead of trusted.
+- **Attribute PnL.** Separate what came from the signal, from position sizing, and from execution.
+
+## Architecture
 
 ![architecture](docs/p1-architecture.png)
 
-Seven components, each with a narrow contract. The `not responsible` column is the one that matters — it is what keeps modules from bleeding into each other.
+Seven components, each with a narrow contract. The `not responsible` column is the load-bearing one: it is what stops modules from growing into each other.
 
 | Component | Responsible for | Explicitly **not** responsible for |
 |---|---|---|
@@ -34,21 +55,23 @@ Seven components, each with a narrow contract. The `not responsible` column is t
 | `Fill` | **Backtest:** deciding fill price, filled quantity, slippage, fees. **Live:** recording exchange fills | Trading decisions |
 | `Performance` | Post-trade reporting: returns, drawdown, turnover, attribution | Producing trades |
 
-### Three decisions worth defending
+### Non-obvious design decisions
 
-1. **`Fill → Portfolio` is a return edge, not a one-way pipe.** Without it, positions and cash never update and PnL stays zero. Execution is a loop, not a pipeline.
-2. **`Portfolio` emits `OrderEvent` (an order), not `orderBook` (market data).** The order book comes from `DataHandler`; the portfolio only decides *what it wants*, never *what the market looks like*.
-3. **`Fill` is where the price is decided.** In a backtest it *is* the exchange — it owns the fill price, quantity, slippage and fee assumptions. `Performance` only reads results; it never invents costs.
+1. **`Fill → Portfolio` is a return edge, not a one-way pipe.** Without it positions and cash never update and PnL stays zero. Execution is a loop, not a pipeline.
+2. **`Portfolio` emits `OrderEvent` (an order), not `orderBook` (market data).** The book comes from `DataHandler`; the portfolio decides *what it wants*, never *what the market looks like*.
+3. **`Fill` is where the price is decided.** In a backtest it *is* the exchange — it owns fill price, quantity, slippage and fees. `Performance` only reads results; it never invents costs.
 
-## Roadmap
+## Status
+
+Design complete; the engine is under active development and no component is usable yet. The acceptance criteria below are the definition of "done" for the first release.
 
 | Milestone | What | Status |
 |---|---|---|
-| **P1** | Event-driven backtest engine (this repo's first real code) | design ✅ / code ⬜ |
-| **P2** | L2 order book reconstruction + replay (Binance / OKX depth diff) | ⬜ |
-| **P5** | Low-latency components in C++ (ring buffer, matching hot path) | ⬜ |
+| **P1** | Event-driven backtest engine (this repository) | design ✅ / code ⬜ |
+| **P2** | L2 order book reconstruction + replay (Binance / OKX depth diff) — separate repository | ⬜ |
+| **P5** | Low-latency components in C++ (ring buffer, matching hot path) — with P2 | ⬜ |
 
-P1 uses **equities** deliberately: suspensions, adjustment factors and market hours force the boring correctness checks. P2 is **crypto** because free full-depth data with 24/7 ticks is what makes microstructure work possible.
+P1 uses **equities** on purpose: suspensions, adjustment factors and market hours force the correctness checks that matter. P2 uses **crypto** because free full-depth, 24/7 data is what makes microstructure work possible.
 
 ## Getting started
 
@@ -61,9 +84,9 @@ Python 3.12, managed by [uv](https://docs.astral.sh/uv/).
 
 ## Data
 
-Daily OHLCV pulled with `yfinance` (HK equities + HSI), adjusted for splits and dividends (`auto_adjust=True`).
+Daily OHLCV via `yfinance` (HK equities + HSI), adjusted with `auto_adjust=True`.
 
-Raw data is **not** committed — see `.gitignore`. `scripts/` regenerates it. Nothing in the repo depends on a specific snapshot being present.
+Raw data is **not** committed — see `.gitignore`; `scripts/` regenerates it. Nothing in the repository depends on a particular snapshot being present.
 
 ## P1 acceptance criteria
 
@@ -74,6 +97,6 @@ Raw data is **not** committed — see `.gitignore`. `scripts/` regenerates it. N
 
 ## Known limitations
 
-- No engine code yet — this README describes the target design.
-- Daily bars only; intraday and tick granularity come with P2.
-- Single-currency, long/short cash equities only; no derivatives.
+- No engine code yet — this README specifies the target, it does not describe a shipped product.
+- Daily bars only; intraday and tick granularity arrive with P2.
+- Long/short cash equities, single currency; no derivatives, no borrow costs, no financing.
