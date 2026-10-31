@@ -89,6 +89,8 @@ Daily OHLCV via `yfinance` (HK equities + HSI), adjusted with `auto_adjust=True`
 
 **Why these names:** five liquid HK large caps spanning telecom (`0700`, `0939`), financials (`0005`, `1299`) and the exchange itself (`0388`), plus the HSI as benchmark. All six have continuous history back to 2023, so a missing bar is a data bug rather than a listing event — which is exactly what makes them useful for testing the loader.
 
+`BTC-USD` and `ETH-USD` are here on purpose, as the 24/7 case: equities trade ~245 days a year, crypto trades 365, and a loader that fetches them in one batch silently merges the two calendars and fills ~460 rows per equity file with `NaN`. They are therefore downloaded in **two separate groups**, and incomplete bars (today's unclosed candle) are dropped before writing.
+
 **Why `yfinance`:** no API key, adjusted prices out of the box, and daily granularity is all P1 needs. When P2 requires tick data the source changes to exchange APIs, but `DataHandler` does not.
 
 Raw data is **not** committed — see `.gitignore`; `scripts/fetch_sample.py` regenerates it. Nothing in the repository depends on a particular snapshot being present.
