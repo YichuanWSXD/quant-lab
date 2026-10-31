@@ -87,7 +87,11 @@ Python 3.12, managed by [uv](https://docs.astral.sh/uv/).
 
 Daily OHLCV via `yfinance` (HK equities + HSI), adjusted with `auto_adjust=True`.
 
-Raw data is **not** committed — see `.gitignore`; `scripts/` regenerates it. Nothing in the repository depends on a particular snapshot being present.
+**Why these names:** five liquid HK large caps spanning telecom (`0700`, `0939`), financials (`0005`, `1299`) and the exchange itself (`0388`), plus the HSI as benchmark. All six have continuous history back to 2023, so a missing bar is a data bug rather than a listing event — which is exactly what makes them useful for testing the loader.
+
+**Why `yfinance`:** no API key, adjusted prices out of the box, and daily granularity is all P1 needs. When P2 requires tick data the source changes to exchange APIs, but `DataHandler` does not.
+
+Raw data is **not** committed — see `.gitignore`; `scripts/fetch_sample.py` regenerates it. Nothing in the repository depends on a particular snapshot being present.
 
 ## P1 acceptance criteria
 
