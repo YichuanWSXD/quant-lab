@@ -40,6 +40,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from quant_lab.bar import Bar
+
 REQUIRED_COLUMNS = ("Open", "High", "Low", "Close", "Volume")
 
 
@@ -85,17 +87,27 @@ def load_frame(path: str | Path) -> pd.DataFrame:
 
 
 
-def to_bars(frame: pd.DataFrame, symbol: str) -> Iterator[Bar]:  # noqa: F821
-    """逐行 yield `Bar`。`volume` 由 float 转 int；ts 取 index 上的 Timestamp。
+def to_bars(frame: pd.DataFrame, symbol: str) -> Iterator[Bar]:
+    """逐行 yield `Bar`。`volume` 由 float 转 int；ts 取 index 上的 Timestamp。NaN 的 OHLC 行：跳过。
 
     契约：
     - 必须是生成器（调用时不把整表遍历一遍）
     - 产出条数 = `len(frame)`，顺序不变
-    - 碰到 OHLC 有 NaN 的行：跳过还是抛？你定，写进 docstring，单测跟上
 
     我打算用的 API：
     """
-    raise NotImplementedError
+    for ts, row in frame.iterrows():
+        if row[["Open", "High", "Low", "Close", 'Volume']].isna().any():
+            continue
+        yield Bar(
+            symbol=symbol,
+            ts=ts, # type: ignore
+            open=row["Open"],
+            high=row["High"],
+            low=row["Low"],
+            close=row["Close"],
+            volume=int(row["Volume"]),
+        )
 
 
 def align(frames: dict[str, pd.DataFrame], how: str = "inner") -> pd.DataFrame:
