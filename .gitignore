@@ -25,3 +25,6 @@ data/
 # Local env / secrets
 .env
 .env.*
+
+# Editor
+.vscode/
