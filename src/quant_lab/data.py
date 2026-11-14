@@ -37,6 +37,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from pathlib import Path
+from typing import Literal
 
 import pandas as pd
 
@@ -71,8 +72,8 @@ def load_frame(path: str | Path) -> pd.DataFrame:
 
     # check index
     if df.index.name != "Date":
-        if "Date" in df.columns:
-            raise ValueError("Missing column: 'Date')")
+        if "Date" not in df.columns:
+            raise ValueError("Missing column: Date")
         df = df.set_index("Date")
     df.index = pd.DatetimeIndex(df.index)
     df = df.sort_index()
@@ -110,16 +111,21 @@ def to_bars(frame: pd.DataFrame, symbol: str) -> Iterator[Bar]:
         )
 
 
-def align(frames: dict[str, pd.DataFrame], how: str = "inner") -> pd.DataFrame:
+def align(
+    frames: dict[str, pd.DataFrame],
+    how: Literal["inner", "outer"] = "inner",
+) -> pd.DataFrame:
     """把多个标的按时间对齐成一张表。
 
     契约：
     - `how="inner"` 对 0700_HK + BTC-USD → **938** 行
     - `how="outer"` → **1399** 行
     - 对齐后任取一行，能同时拿到两个标的的 `Close`
-    - 宽表（列 = (symbol, field) 的 MultiIndex）还是长表（symbol 列 + OHLCV 列）？
-      你定，单测按你定的形状写。
-
-    我打算用的 API：
+    - 宽表,列 = (symbol, field) 的 MultiIndex
     """
-    raise NotImplementedError
+    if how not in {"inner", "outer"}:
+        raise ValueError(f"Unsupported alignment mode: {how!r}")
+
+    results = pd.concat(frames, axis=1, join=how, sort=True)
+    results.columns.names = ["symbol", "field"]
+    return results
