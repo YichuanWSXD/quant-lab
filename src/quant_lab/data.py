@@ -63,9 +63,6 @@ def load_frame(path: str | Path) -> pd.DataFrame:
     - 返回：索引升序、tz-naive、无重复；列只留 `REQUIRED_COLUMNS`
     - 不做清洗（不补前值、不去极值）——那是 `align` 的事
 
-    待你决定、并写进本 docstring：symbol 从哪来？
-    （文件名 `0700_HK.parquet` 推 / 当参数传 / 根本不放进 DataFrame）
-
     我打算用的 API：
     """
     df = pd.read_parquet(path, engine="pyarrow")
