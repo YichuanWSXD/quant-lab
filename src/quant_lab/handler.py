@@ -26,10 +26,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Mapping
 
 from quant_lab.bar import Bar
-from quant_lab.events import Event
+from quant_lab.events import Event, EventType
 
 
 class DataHandler:
@@ -48,7 +48,7 @@ class DataHandler:
     3.
     """
 
-    def __init__(self, bars: Mapping[str, Iterable[Bar]]) -> None:
+    def __init__(self, bars: Mapping[str, list[Bar]]) -> None:
         """`bars`：symbol -> 该标的按 ts 升序排列的 bar。
 
         契约：
@@ -58,15 +58,22 @@ class DataHandler:
         - 空 dict 合法：`update()` 立刻按耗尽处理
         - 传入后不再修改调用方的容器（拷贝还是惰性消费，你定，写一行理由进 commit）
         """
-        raise NotImplementedError
+        for symbol, symbol_bars in bars.items():
+            for i in range(len(symbol_bars) - 1):
+                if symbol_bars[i].ts >= symbol_bars[i+1].ts:
+                    raise ValueError(f"symbol {symbol} bars are not ordered at {symbol_bars[i].ts}")
+        self._bars = bars
+        self._heads = {symbol: 0 for symbol in self._bars}
+
 
     @property
     def symbols(self) -> tuple[str, ...]:
         """标的列表，顺序固定（= 你决定同 ts 内的出队顺序）。"""
-        raise NotImplementedError
+        return tuple(self._bars.keys())
 
-    def update(self) -> Event | None:
-        """推进一个 bar，返回对应 Event。
+
+    def update(self) -> list[Event] | None:
+        """推进一个 bar，返回对应同ts的全部event
 
         契约：
         - 内部要维护"每个标的的下一条"的指针；不能每次调用都从头扫
@@ -74,4 +81,15 @@ class DataHandler:
         - 重复调用不推进时间：只有在真的吐出新 bar 时才改变内部状态
         - 数据耗尽：见 class docstring
         """
-        raise NotImplementedError
+        if all(h == -1 for h in self._heads.values()):
+            return None
+        unused_bars = [self._bars[symbol][idx] for symbol, idx in self._heads.items() if idx != -1]
+        t = min(bar.ts for bar in unused_bars)
+        cur_bars = [bar for bar in unused_bars if bar.ts == t]
+        cur_events = [Event(bar.ts, EventType.MARKET, {"symbol": bar.symbol, "bar": bar}) for bar in cur_bars]
+        for bar in cur_bars:
+            if self._heads[bar.symbol] == len(self._bars[bar.symbol]) - 1:
+                self._heads[bar.symbol] = -1
+            else:
+                self._heads[bar.symbol] += 1
+        return cur_events
